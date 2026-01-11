@@ -34,7 +34,7 @@ hardware_interface::CallbackReturn OpenArmHW::on_init(
       CallbackReturn::SUCCESS) {
     return CallbackReturn::ERROR;
   }
-  const auto& info = params.info;
+  const auto& info = info_;
 
   // read hardware parameters
   if (info.hardware_parameters.find("can_device") ==
