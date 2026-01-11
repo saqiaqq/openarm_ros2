@@ -112,9 +112,13 @@ struct can_frame CANBus::recvClassic() {
   struct can_frame frame;
   std::memset(&frame, 0, sizeof(frame));
 
-  int nbytes = read(sock_, &frame, sizeof(struct can_frame));
+  int nbytes = ::recv(sock_, &frame, sizeof(struct can_frame), MSG_DONTWAIT);
   if (nbytes < 0) {
-    perror("CAN read error");
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      perror("CAN read error");
+    } else {
+        frame.can_dlc = 0; // Mark as empty
+    }
   }
   return frame;
 }
@@ -123,9 +127,13 @@ struct canfd_frame CANBus::recvFD() {
   struct canfd_frame frame;
   std::memset(&frame, 0, sizeof(frame));
 
-  int nbytes = read(sock_, &frame, sizeof(struct canfd_frame));
+  int nbytes = ::recv(sock_, &frame, sizeof(struct canfd_frame), MSG_DONTWAIT);
   if (nbytes < 0) {
-    perror("CAN FD read error");
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      perror("CAN FD read error");
+    } else {
+        frame.len = 0; // Mark as empty
+    }
   }
   return frame;
 }
