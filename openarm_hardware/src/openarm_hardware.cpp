@@ -29,11 +29,12 @@ static const std::string& can_device_name = "can0";
 OpenArmHW::OpenArmHW() = default;
 
 hardware_interface::CallbackReturn OpenArmHW::on_init(
-    const hardware_interface::HardwareInfo& info) {
-  if (hardware_interface::SystemInterface::on_init(info) !=
+    const hardware_interface::HardwareComponentInterfaceParams& params) {
+  if (hardware_interface::SystemInterface::on_init(params) !=
       CallbackReturn::SUCCESS) {
     return CallbackReturn::ERROR;
   }
+  const auto& info = params.info;
 
   // read hardware parameters
   if (info.hardware_parameters.find("can_device") ==

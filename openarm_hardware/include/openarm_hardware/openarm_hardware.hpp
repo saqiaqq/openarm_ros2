@@ -60,7 +60,7 @@ class OpenArmHW : public hardware_interface::SystemInterface {
 
   TEMPLATES__ROS2_CONTROL__VISIBILITY_PUBLIC
   hardware_interface::CallbackReturn on_init(
-      const hardware_interface::HardwareInfo& info) override;
+      const hardware_interface::HardwareComponentInterfaceParams& params) override;
 
   TEMPLATES__ROS2_CONTROL__VISIBILITY_PUBLIC
   hardware_interface::CallbackReturn on_configure(
