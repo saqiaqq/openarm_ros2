@@ -318,15 +318,29 @@ void MotorControl::recv_set_param_data() {
   uint8_t len;
   std::array<uint8_t, 64> data = canbus_.recv(id, len);
 
-  uint8_t cmd = 0x11;
-
   if (len >= 8) {
+    // Print logs
     std::cout << "CANID: 0x" << std::hex << id << ", CMD: 0x"
-              << static_cast<int>(cmd) << std::dec << std::endl;
+              << static_cast<int>(data[2]) << std::dec << std::endl;
     for (int i = 0; i < 8; ++i) {
       std::cout << "0x" << std::hex << static_cast<int>(data[i]) << " ";
     }
     std::cout << std::dec << std::endl;
+
+    // Parse logic
+    uint16_t slave_id = data[0] | (static_cast<uint16_t>(data[1]) << 8);
+    uint8_t rid = data[3];
+
+    // Find motor
+    auto it = motors_map_.find(slave_id);
+    if (it != motors_map_.end()) {
+      Motor* motor = it->second;
+      // We only handle integer params for now (like CTRL_MODE)
+      if (is_in_ranges(rid)) {
+        uint32_t val = uint8s_to_uint32(data[4], data[5], data[6], data[7]);
+        motor->setTempParam(rid, static_cast<int>(val));
+      }
+    }
   }
 }
 

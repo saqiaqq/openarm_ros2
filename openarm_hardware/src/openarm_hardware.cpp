@@ -37,10 +37,10 @@ hardware_interface::CallbackReturn OpenArmHW::on_init(
   const auto& info = info_;
 
   // read hardware parameters
-  if (info.hardware_parameters.find("can_device") ==
+  if (info.hardware_parameters.find("can_interface") ==
       info.hardware_parameters.end()) {
     RCLCPP_ERROR(rclcpp::get_logger("OpenArmHW"),
-                 "No can_device parameter found");
+                 "No can_interface parameter found");
     return CallbackReturn::ERROR;
   }
 
@@ -58,7 +58,7 @@ hardware_interface::CallbackReturn OpenArmHW::on_init(
   }
 
   // temp CANFD
-  canbus_ = std::make_unique<CANBus>(info.hardware_parameters.at("can_device"),
+  canbus_ = std::make_unique<CANBus>(info.hardware_parameters.at("can_interface"),
                                      CAN_MODE_FD);
   motor_control_ = std::make_unique<MotorControl>(*canbus_);
 
