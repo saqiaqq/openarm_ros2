@@ -222,7 +222,7 @@ hardware_interface::return_type OpenArmHW::write(
   if (disable_torque_) {
     // refresh motor state on write
     for (size_t i = 0; i < curr_dof; ++i) {
-      motor_control_->controlMIT2(*motors_[i], 0.0, 0.0, 0.0, 0.0, 0.0);
+      motor_control_->controlMIT(*motors_[i], 0.0, 0.0, 0.0, 0.0, 0.0);
       return hardware_interface::return_type::OK;
     }
   }
@@ -235,12 +235,12 @@ hardware_interface::return_type OpenArmHW::write(
                    pos_commands_[i]);
       return hardware_interface::return_type::ERROR;
     }
-    motor_control_->controlMIT2(*motors_[i], KP.at(i), KD.at(i),
+    motor_control_->controlMIT(*motors_[i], KP.at(i), KD.at(i),
                                pos_commands_[i], vel_commands_[i],
                                tau_ff_commands_[i]);
   }
   if (USING_GRIPPER) {
-    motor_control_->controlMIT2(
+    motor_control_->controlMIT(
         *motors_[GRIPPER_INDEX], KP.at(GRIPPER_INDEX), KD.at(GRIPPER_INDEX),
         -pos_commands_[GRIPPER_INDEX] / GRIPPER_REFERENCE_GEAR_RADIUS_M *
             GRIPPER_GEAR_DIRECTION_MULTIPLIER,
