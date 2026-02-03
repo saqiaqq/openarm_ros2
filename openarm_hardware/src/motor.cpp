@@ -21,17 +21,18 @@ Motor::Motor(DM_Motor_Type motorType, uint16_t slaveID, uint16_t masterID)
     : SlaveID(slaveID),
       MasterID(masterID),
       isEnable(false),
+      NowControlMode(Control_Type::MIT),
       MotorType(motorType),
       Pd(0.0),
       Vd(0.0),
       goal_position(0.0),
+      goal_velocity(0.0),
       goal_tau(0.0),
       state_q(0.0),
       state_dq(0.0),
       state_tau(0.0),
       state_tmos(0),
-      state_trotor(0),
-      NowControlMode(Control_Type::MIT) {}
+      state_trotor(0) {}
 
 void Motor::recv_data(double q, double dq, double tau, int tmos, int trotor) {
   state_q = q;
@@ -123,10 +124,10 @@ uint32_t uint8s_to_uint32(uint8_t byte1, uint8_t byte2, uint8_t byte3,
 
 double uint8s_to_double(uint8_t byte1, uint8_t byte2, uint8_t byte3,
                         uint8_t byte4) {
-  double value;
+  float value;
   uint8_t bytes[4] = {byte1, byte2, byte3, byte4};
-  std::memcpy(&value, bytes, sizeof(double));
-  return value;
+  std::memcpy(&value, bytes, sizeof(float));
+  return static_cast<double>(value);
 }
 
 bool is_in_ranges(int number) {
