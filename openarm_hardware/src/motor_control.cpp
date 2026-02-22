@@ -483,10 +483,10 @@ void MotorControl::writeMotorParam(Motor& motor, DM_variable RID,
 
   if (is_in_ranges(static_cast<int>(RID))) {
     auto intData = data_to_uint8s(static_cast<uint32_t>(value));
-    std::copy(intData.begin(), intData.end(), data.begin() + 4);
+    std::copy(intData.begin(), intData.begin() + 4, data.begin() + 4);
   } else {
-    auto doubleData = double_to_uint8s(value);
-    std::copy(doubleData.begin(), doubleData.end(), data.begin() + 4);
+    auto floatData = float_to_uint8s(static_cast<float>(value));
+    std::copy(floatData.begin(), floatData.end(), data.begin() + 4);
   }
 
   canbus_.send(0x7FF, data);
