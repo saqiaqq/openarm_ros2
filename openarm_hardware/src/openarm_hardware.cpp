@@ -29,36 +29,35 @@ static const std::string& can_device_name = "can0";
 OpenArmHW::OpenArmHW() = default;
 
 hardware_interface::CallbackReturn OpenArmHW::on_init(
-    const hardware_interface::HardwareComponentInterfaceParams& params) {
-  if (hardware_interface::SystemInterface::on_init(params) !=
+    const hardware_interface::HardwareInfo& info) {
+  if (hardware_interface::SystemInterface::on_init(info) !=
       CallbackReturn::SUCCESS) {
     return CallbackReturn::ERROR;
   }
-  const auto& info = info_;
 
   // read hardware parameters
-  if (info.hardware_parameters.find("can_interface") ==
-      info.hardware_parameters.end()) {
+  if (info_.hardware_parameters.find("can_interface") ==
+      info_.hardware_parameters.end()) {
     RCLCPP_ERROR(rclcpp::get_logger("OpenArmHW"),
                  "No can_interface parameter found");
     return CallbackReturn::ERROR;
   }
 
-  auto it = info.hardware_parameters.find("prefix");
-  if (it == info.hardware_parameters.end()) {
+  auto it = info_.hardware_parameters.find("prefix");
+  if (it == info_.hardware_parameters.end()) {
     prefix_ = "";
   } else {
     prefix_ = it->second;
   }
-  it = info.hardware_parameters.find("disable_torque");
-  if (it == info.hardware_parameters.end()) {
+  it = info_.hardware_parameters.find("disable_torque");
+  if (it == info_.hardware_parameters.end()) {
     disable_torque_ = false;
   } else {
     disable_torque_ = it->second == "true";
   }
 
   // temp CANFD
-  canbus_ = std::make_unique<CANBus>(info.hardware_parameters.at("can_interface"),
+  canbus_ = std::make_unique<CANBus>(info_.hardware_parameters.at("can_interface"),
                                      CAN_MODE_FD);
   motor_control_ = std::make_unique<MotorControl>(*canbus_);
 

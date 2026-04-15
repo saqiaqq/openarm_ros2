@@ -124,7 +124,5 @@ class TestOpenArmHW : public ::testing::Test {
 TEST_F(TestOpenArmHW, load_openarm_hardware_7dof) {
   auto urdf = ros2_control_test_assets::urdf_head + openarm_hardware_7dof_ +
               ros2_control_test_assets::urdf_tail;
-  ASSERT_NO_THROW(hardware_interface::ResourceManager rm(
-      urdf, std::make_shared<rclcpp::Clock>(),
-      rclcpp::get_logger("test_openarm_hardware")));
+  ASSERT_NO_THROW(hardware_interface::ResourceManager rm(urdf));
 }
