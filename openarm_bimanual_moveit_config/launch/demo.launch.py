@@ -9,6 +9,7 @@ from launch.actions import (
     TimerAction,
     OpaqueFunction,
 )
+from launch.conditions import IfCondition
 from launch.substitutions import (
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -158,6 +159,12 @@ def generate_launch_description():
             "controllers_file",
             default_value="openarm_v10_bimanual_controllers.yaml",
         ),
+        DeclareLaunchArgument(
+            "use_rviz",
+            default_value="true",
+            choices=["true", "false"],
+            description="Whether to start rviz2 in this launch.",
+        ),
     ]
 
     description_package = LaunchConfiguration("description_package")
@@ -239,6 +246,7 @@ def generate_launch_description():
         output="log",
         arguments=["-d", rviz_cfg],
         parameters=[moveit_params],
+        condition=IfCondition(LaunchConfiguration("use_rviz")),
     )
 
     return LaunchDescription(
