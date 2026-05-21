@@ -15,6 +15,8 @@
 
 #include "openarm_hardware/openarm_hardware.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -184,6 +186,8 @@ hardware_interface::CallbackReturn OpenArmHW::on_activate(
 
 hardware_interface::CallbackReturn OpenArmHW::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/) {
+  gripper_grasp_hold_ = false;
+  gripper_stall_count_ = 0;
   refresh_motors();
   for (const auto& motor : motors_) {
     motor_control_->disable(*motor);
@@ -239,10 +243,63 @@ hardware_interface::return_type OpenArmHW::write(
                                tau_ff_commands_[i]);
   }
   if (USING_GRIPPER) {
+    double cmd = std::clamp(pos_commands_[GRIPPER_INDEX], GRIPPER_POS_CLOSED_M,
+                            GRIPPER_POS_OPEN_M);
+    pos_commands_[GRIPPER_INDEX] = cmd;
+
+    const double pos = pos_states_[GRIPPER_INDEX];
+    const double vel = vel_states_[GRIPPER_INDEX];
+    const double err = cmd - pos;
+    const bool closing = cmd < pos - 1e-5;
+    const bool opening = cmd > pos + 1e-5;
+
+    if (opening && cmd > GRIPPER_POS_OPEN_M * 0.5) {
+      gripper_grasp_hold_ = false;
+      gripper_stall_count_ = 0;
+    }
+
+    double kp = KP.at(GRIPPER_INDEX);
+    double kd = KD.at(GRIPPER_INDEX);
+    double motor_q =
+        -cmd / GRIPPER_REFERENCE_GEAR_RADIUS_M * GRIPPER_GEAR_DIRECTION_MULTIPLIER;
+
+    if (gripper_grasp_hold_) {
+      motor_q = -pos / GRIPPER_REFERENCE_GEAR_RADIUS_M *
+                GRIPPER_GEAR_DIRECTION_MULTIPLIER;
+      kp = GRIPPER_GRASP_KP;
+      kd = GRIPPER_GRASP_KD;
+    } else {
+      if (closing && std::abs(err) > GRIPPER_STALL_ERROR_M &&
+          std::abs(vel) < GRIPPER_STALL_VEL_M_S) {
+        if (++gripper_stall_count_ >= GRIPPER_STALL_CYCLES) {
+          gripper_grasp_hold_ = true;
+          gripper_stall_count_ = 0;
+          motor_q = -pos / GRIPPER_REFERENCE_GEAR_RADIUS_M *
+                    GRIPPER_GEAR_DIRECTION_MULTIPLIER;
+          kp = GRIPPER_GRASP_KP;
+          kd = GRIPPER_GRASP_KD;
+        }
+      } else {
+        gripper_stall_count_ = 0;
+      }
+
+      if (!gripper_grasp_hold_) {
+        if (opening && pos >= GRIPPER_POS_OPEN_M - GRIPPER_STALL_ERROR_M &&
+            err > GRIPPER_STALL_ERROR_M) {
+          motor_q = -GRIPPER_POS_OPEN_M / GRIPPER_REFERENCE_GEAR_RADIUS_M *
+                    GRIPPER_GEAR_DIRECTION_MULTIPLIER;
+          kp = GRIPPER_LIMIT_KP;
+        } else if (closing && pos <= GRIPPER_POS_CLOSED_M + GRIPPER_STALL_ERROR_M &&
+                   err < -GRIPPER_STALL_ERROR_M) {
+          motor_q = -GRIPPER_POS_CLOSED_M / GRIPPER_REFERENCE_GEAR_RADIUS_M *
+                    GRIPPER_GEAR_DIRECTION_MULTIPLIER;
+          kp = GRIPPER_LIMIT_KP;
+        }
+      }
+    }
+
     motor_control_->controlMIT(
-        *motors_[GRIPPER_INDEX], KP.at(GRIPPER_INDEX), KD.at(GRIPPER_INDEX),
-        -pos_commands_[GRIPPER_INDEX] / GRIPPER_REFERENCE_GEAR_RADIUS_M *
-            GRIPPER_GEAR_DIRECTION_MULTIPLIER,
+        *motors_[GRIPPER_INDEX], kp, kd, motor_q,
         vel_commands_[GRIPPER_INDEX] / GRIPPER_REFERENCE_GEAR_RADIUS_M *
             GRIPPER_GEAR_DIRECTION_MULTIPLIER,
         tau_ff_commands_[GRIPPER_INDEX] / GRIPPER_REFERENCE_GEAR_RADIUS_M *

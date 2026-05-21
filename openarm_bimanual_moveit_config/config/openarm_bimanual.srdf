@@ -129,16 +129,16 @@
         <joint name="openarm_right_finger_joint1" value="0"/>
     </group_state>
     <group_state name="half closed" group="left_gripper">
-        <joint name="openarm_left_finger_joint1" value="0.022"/>
+        <joint name="openarm_left_finger_joint1" value="0.020"/>
     </group_state>
     <group_state name="half_closed" group="right_gripper">
-        <joint name="openarm_right_finger_joint1" value="0.022"/>
+        <joint name="openarm_right_finger_joint1" value="0.020"/>
     </group_state>
     <group_state name="open" group="left_gripper">
-        <joint name="openarm_left_finger_joint1" value="0.044"/>
+        <joint name="openarm_left_finger_joint1" value="0.040"/>
     </group_state>
     <group_state name="open" group="right_gripper">
-        <joint name="openarm_right_finger_joint1" value="0.044"/>
+        <joint name="openarm_right_finger_joint1" value="0.040"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
     <end_effector name="left_ee" parent_link="openarm_left_link7" group="left_gripper"/>

@@ -53,6 +53,16 @@ static const bool USING_GRIPPER = true;
 static const double GRIPPER_REFERENCE_GEAR_RADIUS_M = 0.03412;
 static const double GRIPPER_GEAR_DIRECTION_MULTIPLIER = -1.0;
 static const int GRIPPER_INDEX = TOTAL_DOF - 1;
+// Joint-space finger travel (m). URDF nominal max is 0.044; use a margin so the
+// motor does not stall against the mechanical stop when held fully open.
+static constexpr double GRIPPER_POS_CLOSED_M = 0.0;
+static constexpr double GRIPPER_POS_OPEN_M = 0.040;
+static constexpr double GRIPPER_GRASP_KP = 12.0;
+static constexpr double GRIPPER_GRASP_KD = 0.8;
+static constexpr double GRIPPER_LIMIT_KP = 15.0;
+static constexpr double GRIPPER_STALL_ERROR_M = 0.002;
+static constexpr double GRIPPER_STALL_VEL_M_S = 0.002;
+static constexpr int GRIPPER_STALL_CYCLES = 30;
 
 class OpenArmHW : public hardware_interface::SystemInterface {
  public:
@@ -105,6 +115,8 @@ class OpenArmHW : public hardware_interface::SystemInterface {
 
   void refresh_motors();
   bool disable_torque_;
+  bool gripper_grasp_hold_{false};
+  int gripper_stall_count_{0};
 };
 
 }  // namespace openarm_hardware
