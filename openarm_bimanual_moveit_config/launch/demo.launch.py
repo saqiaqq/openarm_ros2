@@ -1,5 +1,7 @@
 import os
+
 import xacro
+import yaml
 from ament_index_python.packages import (
     get_package_share_directory,
 )
@@ -226,6 +228,13 @@ def generate_launch_description():
     ).to_moveit_configs()
 
     moveit_params = moveit_config.to_dict()
+    traj_exec_cfg = os.path.join(
+        get_package_share_directory("openarm_bimanual_moveit_config"),
+        "config",
+        "trajectory_execution.yaml",
+    )
+    with open(traj_exec_cfg, encoding="utf-8") as f:
+        moveit_params.update(yaml.safe_load(f))
 
     run_move_group_node = Node(
         package="moveit_ros_move_group",

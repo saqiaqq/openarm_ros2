@@ -1,0 +1,6 @@
+# MoveIt trajectory_execution_manager tolerances.
+# Real hardware joint_states can lag the planning scene; 0.01 rad is too tight.
+trajectory_execution:
+  allowed_start_tolerance: 0.05
+  allowed_goal_duration_margin: 1.0
+  allowed_execution_duration_scaling: 2.0
