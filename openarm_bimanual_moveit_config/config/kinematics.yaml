@@ -1,16 +1,24 @@
 left_arm:
   kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-  kinematics_solver_search_resolution: 0.0050000000000000001
-  kinematics_solver_timeout: 0.0050000000000000001
+  kinematics_solver_search_resolution: 0.005
+  # Increase timeout so gradient descent has more iterations to converge
+  # near the seed (current joint state), reducing large rotations.
+  kinematics_solver_timeout: 0.05
+  # attempts=1: only solve from seed (current state); no random restarts
+  # that could find kinematically distant but pose-equivalent solutions.
+  kinematics_solver_attempts: 1
 left_side:
   kinematics_solver: cached_ik_kinematics_plugin/CachedKDLKinematicsPlugin
-  kinematics_solver_search_resolution: 0.0050000000000000001
-  kinematics_solver_timeout: 0.0050000000000000001
+  kinematics_solver_search_resolution: 0.005
+  kinematics_solver_timeout: 0.05
+  kinematics_solver_attempts: 1
 right_arm:
   kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-  kinematics_solver_search_resolution: 0.0050000000000000001
-  kinematics_solver_timeout: 0.0050000000000000001
+  kinematics_solver_search_resolution: 0.005
+  kinematics_solver_timeout: 0.05
+  kinematics_solver_attempts: 1
 right_side:
   kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-  kinematics_solver_search_resolution: 0.0050000000000000001
-  kinematics_solver_timeout: 0.0050000000000000001
+  kinematics_solver_search_resolution: 0.005
+  kinematics_solver_timeout: 0.05
+  kinematics_solver_attempts: 1
