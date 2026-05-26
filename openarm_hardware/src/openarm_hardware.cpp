@@ -83,6 +83,8 @@ hardware_interface::CallbackReturn OpenArmHW::on_init(
   vel_commands_.resize(curr_dof, 0.0);
   tau_states_.resize(curr_dof, 0.0);
   tau_ff_commands_.resize(curr_dof, 0.0);
+  gripper_speed_commands_.resize(curr_dof, 1.0);
+  gripper_force_commands_.resize(curr_dof, 0.0);
   refresh_motors();
   read(rclcpp::Time(0), rclcpp::Duration(0, 0));
 
@@ -136,6 +138,14 @@ OpenArmHW::export_command_interfaces() {
         info_.joints[i].name, hardware_interface::HW_IF_EFFORT,
         &tau_ff_commands_[i]));
   }
+  if (USING_GRIPPER) {
+    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+        info_.joints[GRIPPER_INDEX].name, "gripper_speed",
+        &gripper_speed_commands_[GRIPPER_INDEX]));
+    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+        info_.joints[GRIPPER_INDEX].name, "gripper_force",
+        &gripper_force_commands_[GRIPPER_INDEX]));
+  }
 
   return command_interfaces;
 }
@@ -188,6 +198,8 @@ hardware_interface::CallbackReturn OpenArmHW::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/) {
   gripper_grasp_hold_ = false;
   gripper_stall_count_ = 0;
+  gripper_hold_pos_m_ = GRIPPER_POS_CLOSED_M;
+  gripper_filtered_cmd_m_ = GRIPPER_POS_CLOSED_M;
   refresh_motors();
   for (const auto& motor : motors_) {
     motor_control_->disable(*motor);
@@ -221,7 +233,7 @@ hardware_interface::return_type OpenArmHW::read(
 }
 
 hardware_interface::return_type OpenArmHW::write(
-    const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/) {
+    const rclcpp::Time& /*time*/, const rclcpp::Duration& period) {
   if (disable_torque_) {
     // refresh motor state on write
     for (size_t i = 0; i < curr_dof; ++i) {
@@ -243,12 +255,33 @@ hardware_interface::return_type OpenArmHW::write(
                                tau_ff_commands_[i]);
   }
   if (USING_GRIPPER) {
-    double cmd = std::clamp(pos_commands_[GRIPPER_INDEX], GRIPPER_POS_CLOSED_M,
-                            GRIPPER_POS_OPEN_M);
-    pos_commands_[GRIPPER_INDEX] = cmd;
+    const double target_cmd = std::clamp(
+        pos_commands_[GRIPPER_INDEX], GRIPPER_POS_CLOSED_M, GRIPPER_POS_OPEN_M);
+    pos_commands_[GRIPPER_INDEX] = target_cmd;
 
     const double pos = pos_states_[GRIPPER_INDEX];
     const double vel = vel_states_[GRIPPER_INDEX];
+    const double force_n = std::max(0.0, gripper_force_commands_[GRIPPER_INDEX]);
+    const double force_scale = std::clamp(
+        force_n / GRIPPER_FORCE_FULL_SCALE_N, 0.0, 1.0);
+    const double requested_speed = gripper_speed_commands_[GRIPPER_INDEX];
+    const double speed_scale = (std::isfinite(requested_speed) && requested_speed > 0.0)
+        ? std::clamp(std::abs(requested_speed), 0.05, 1.0)
+        : 1.0;
+    const double dt = std::max(0.001, period.seconds());
+    const double max_step = GRIPPER_MAX_SPEED_M_S * speed_scale * dt;
+
+    if (!std::isfinite(gripper_filtered_cmd_m_)) {
+      gripper_filtered_cmd_m_ = pos;
+    }
+    if (std::abs(gripper_filtered_cmd_m_ - pos) > 0.02) {
+      gripper_filtered_cmd_m_ = pos;
+    }
+    const double delta = target_cmd - gripper_filtered_cmd_m_;
+    gripper_filtered_cmd_m_ += std::clamp(delta, -max_step, max_step);
+    double cmd = std::clamp(
+        gripper_filtered_cmd_m_, GRIPPER_POS_CLOSED_M, GRIPPER_POS_OPEN_M);
+
     const double err = cmd - pos;
     const bool closing = cmd < pos - 1e-5;
     const bool opening = cmd > pos + 1e-5;
@@ -256,6 +289,7 @@ hardware_interface::return_type OpenArmHW::write(
     if (opening && cmd > GRIPPER_POS_OPEN_M * 0.5) {
       gripper_grasp_hold_ = false;
       gripper_stall_count_ = 0;
+      gripper_hold_pos_m_ = GRIPPER_POS_CLOSED_M;
     }
 
     double kp = KP.at(GRIPPER_INDEX);
@@ -264,9 +298,12 @@ hardware_interface::return_type OpenArmHW::write(
         -cmd / GRIPPER_REFERENCE_GEAR_RADIUS_M * GRIPPER_GEAR_DIRECTION_MULTIPLIER;
 
     if (gripper_grasp_hold_) {
-      motor_q = -pos / GRIPPER_REFERENCE_GEAR_RADIUS_M *
+      const double hold_pos = std::clamp(
+          gripper_hold_pos_m_, GRIPPER_POS_CLOSED_M, GRIPPER_POS_OPEN_M);
+      motor_q = -hold_pos / GRIPPER_REFERENCE_GEAR_RADIUS_M *
                 GRIPPER_GEAR_DIRECTION_MULTIPLIER;
-      kp = GRIPPER_GRASP_KP;
+      kp = GRIPPER_HOLD_KP_MIN +
+           (GRIPPER_HOLD_KP_MAX - GRIPPER_HOLD_KP_MIN) * force_scale;
       kd = GRIPPER_GRASP_KD;
     } else {
       if (closing && std::abs(err) > GRIPPER_STALL_ERROR_M &&
@@ -274,10 +311,25 @@ hardware_interface::return_type OpenArmHW::write(
         if (++gripper_stall_count_ >= GRIPPER_STALL_CYCLES) {
           gripper_grasp_hold_ = true;
           gripper_stall_count_ = 0;
-          motor_q = -pos / GRIPPER_REFERENCE_GEAR_RADIUS_M *
+          const double preload = GRIPPER_HOLD_PRELOAD_MIN_M +
+              (GRIPPER_HOLD_PRELOAD_MAX_M - GRIPPER_HOLD_PRELOAD_MIN_M) *
+                  force_scale;
+          // Freeze the hold target slightly inside the contact point.  Updating
+          // it from live feedback would follow bottle/object rebound outward and
+          // look like the gripper is releasing after a successful grasp.
+          gripper_hold_pos_m_ = std::clamp(
+              pos - preload,
+              GRIPPER_POS_CLOSED_M,
+              GRIPPER_POS_OPEN_M);
+          gripper_filtered_cmd_m_ = gripper_hold_pos_m_;
+          motor_q = -gripper_hold_pos_m_ / GRIPPER_REFERENCE_GEAR_RADIUS_M *
                     GRIPPER_GEAR_DIRECTION_MULTIPLIER;
-          kp = GRIPPER_GRASP_KP;
+          kp = GRIPPER_HOLD_KP_MIN +
+               (GRIPPER_HOLD_KP_MAX - GRIPPER_HOLD_KP_MIN) * force_scale;
           kd = GRIPPER_GRASP_KD;
+          RCLCPP_INFO(rclcpp::get_logger("OpenArmHW"),
+                      "Gripper grasp hold: contact=%.4fm hold=%.4fm force=%.2fN speed=%.2f kp=%.1f",
+                      pos, gripper_hold_pos_m_, force_n, speed_scale, kp);
         }
       } else {
         gripper_stall_count_ = 0;

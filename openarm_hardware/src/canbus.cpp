@@ -24,6 +24,12 @@ CANBus::CANBus(const std::string& interface, int mode) : mode_(mode) {
     exit(EXIT_FAILURE);
   }
 
+  const int send_buffer_bytes = 1 << 20;
+  if (setsockopt(sock_, SOL_SOCKET, SO_SNDBUF, &send_buffer_bytes,
+                 sizeof(send_buffer_bytes)) < 0) {
+    perror("CAN send buffer setsockopt failed");
+  }
+
   std::strncpy(ifr.ifr_name, interface.c_str(), IFNAMSIZ);
   if (ioctl(sock_, SIOCGIFINDEX, &ifr) < 0) {
     perror("Error getting interface index");
@@ -86,9 +92,12 @@ bool CANBus::sendClassic(uint16_t motor_id,
   std::copy(data.begin(), data.end(), frame.data);
 
   if (write(sock_, &frame, sizeof(frame)) != sizeof(frame)) {
-    perror("Error sending CAN frame");
+    if ((++send_error_count_ % 100U) == 1U) {
+      perror("Error sending CAN frame");
+    }
     return false;
   }
+  send_error_count_ = 0;
   return true;
 }
 
@@ -102,9 +111,12 @@ bool CANBus::sendFD(uint16_t motor_id, const std::array<uint8_t, 8>& data) {
   std::copy(data.begin(), data.end(), frame.data);
 
   if (write(sock_, &frame, sizeof(frame)) != sizeof(frame)) {
-    perror("Error sending CAN FD frame");
+    if ((++send_error_count_ % 100U) == 1U) {
+      perror("Error sending CAN FD frame");
+    }
     return false;
   }
+  send_error_count_ = 0;
   return true;
 }
 

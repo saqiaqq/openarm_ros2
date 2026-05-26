@@ -251,7 +251,9 @@ def generate_launch_description():
             executable="spawner",
             namespace=namespace_from_context(context, arm_prefix),
             arguments=["left_gripper_controller",
-                       "right_gripper_controller", "-c",
+                       "right_gripper_controller",
+                       "left_gripper_aux_controller",
+                       "right_gripper_aux_controller", "-c",
                        f"/{namespace_from_context(context, arm_prefix)}/controller_manager" if namespace_from_context(context, arm_prefix) else "/controller_manager"],
         )]
     )

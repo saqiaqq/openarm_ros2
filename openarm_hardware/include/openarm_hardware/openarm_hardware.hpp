@@ -60,9 +60,15 @@ static constexpr double GRIPPER_POS_OPEN_M = 0.040;
 static constexpr double GRIPPER_GRASP_KP = 12.0;
 static constexpr double GRIPPER_GRASP_KD = 0.8;
 static constexpr double GRIPPER_LIMIT_KP = 15.0;
+static constexpr double GRIPPER_HOLD_PRELOAD_MIN_M = 0.0008;
+static constexpr double GRIPPER_HOLD_PRELOAD_MAX_M = 0.0040;
+static constexpr double GRIPPER_FORCE_FULL_SCALE_N = 10.0;
+static constexpr double GRIPPER_HOLD_KP_MIN = 14.0;
+static constexpr double GRIPPER_HOLD_KP_MAX = 45.0;
+static constexpr double GRIPPER_MAX_SPEED_M_S = 0.120;
 static constexpr double GRIPPER_STALL_ERROR_M = 0.002;
 static constexpr double GRIPPER_STALL_VEL_M_S = 0.002;
-static constexpr int GRIPPER_STALL_CYCLES = 30;
+static constexpr int GRIPPER_STALL_CYCLES = 5;
 
 class OpenArmHW : public hardware_interface::SystemInterface {
  public:
@@ -111,12 +117,16 @@ class OpenArmHW : public hardware_interface::SystemInterface {
   std::vector<double> vel_states_;
   std::vector<double> tau_ff_commands_;
   std::vector<double> tau_states_;
+  std::vector<double> gripper_speed_commands_;
+  std::vector<double> gripper_force_commands_;
   std::vector<std::unique_ptr<Motor>> motors_;
 
   void refresh_motors();
   bool disable_torque_;
   bool gripper_grasp_hold_{false};
   int gripper_stall_count_{0};
+  double gripper_hold_pos_m_{GRIPPER_POS_CLOSED_M};
+  double gripper_filtered_cmd_m_{GRIPPER_POS_CLOSED_M};
 };
 
 }  // namespace openarm_hardware

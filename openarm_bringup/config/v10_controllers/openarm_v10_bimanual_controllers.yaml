@@ -32,6 +32,9 @@ controller_manager:
     left_gripper_controller:
       type: position_controllers/GripperActionController
 
+    left_gripper_aux_controller:
+      type: forward_command_controller/MultiInterfaceForwardCommandController
+
     right_forward_position_controller:
       type: forward_command_controller/ForwardCommandController
 
@@ -43,6 +46,9 @@ controller_manager:
 
     right_gripper_controller:
       type: position_controllers/GripperActionController
+
+    right_gripper_aux_controller:
+      type: forward_command_controller/MultiInterfaceForwardCommandController
 
 
 left_forward_position_controller:
@@ -104,10 +110,20 @@ left_joint_trajectory_controller:
 left_gripper_controller:
   ros__parameters:
     joint: openarm_left_finger_joint1
+    allow_stalling: true
+    stall_velocity_threshold: 0.002
+    stall_timeout: 0.3
     command_interfaces:
       - position
     state_interfaces:
       - position
+
+left_gripper_aux_controller:
+  ros__parameters:
+    joint: openarm_left_finger_joint1
+    interface_names:
+      - gripper_speed
+      - gripper_force
 
 
 right_forward_position_controller:
@@ -169,7 +185,17 @@ right_joint_trajectory_controller:
 right_gripper_controller:
   ros__parameters:
     joint: openarm_right_finger_joint1
+    allow_stalling: true
+    stall_velocity_threshold: 0.002
+    stall_timeout: 0.3
     command_interfaces:
       - position
     state_interfaces:
       - position
+
+right_gripper_aux_controller:
+  ros__parameters:
+    joint: openarm_right_finger_joint1
+    interface_names:
+      - gripper_speed
+      - gripper_force

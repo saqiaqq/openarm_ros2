@@ -215,7 +215,9 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["left_gripper_controller",
-                   "right_gripper_controller", "-c", "/controller_manager"],
+                   "right_gripper_controller",
+                   "left_gripper_aux_controller",
+                   "right_gripper_aux_controller", "-c", "/controller_manager"],
     )
 
     delayed_jsb = TimerAction(period=2.0, actions=[jsb_spawner])

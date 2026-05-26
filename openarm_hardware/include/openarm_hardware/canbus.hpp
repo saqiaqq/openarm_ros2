@@ -19,6 +19,7 @@
 #include <linux/can/raw.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <array>
@@ -45,4 +46,5 @@ class CANBus {
 
   int sock_;
   int mode_;
+  unsigned int send_error_count_{0};
 };
