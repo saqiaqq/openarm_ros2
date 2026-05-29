@@ -19,6 +19,8 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from moveit_configs_utils import MoveItConfigsBuilder
+from launch.substitutions import EnvironmentVariable
+from launch.substitutions import PythonExpression
 
 
 def generate_robot_description(
@@ -257,7 +259,18 @@ def generate_launch_description():
         output="log",
         arguments=["-d", rviz_cfg],
         parameters=[moveit_params],
-        condition=IfCondition(LaunchConfiguration("use_rviz")),
+        # Also gate on DISPLAY existing to avoid hard-crashing in headless sessions.
+        condition=IfCondition(
+            PythonExpression(
+                [
+                    '"',
+                    LaunchConfiguration("use_rviz"),
+                    '" == "true" and "',
+                    EnvironmentVariable("DISPLAY", default_value=""),
+                    '" != ""',
+                ]
+            )
+        ),
     )
 
     return LaunchDescription(

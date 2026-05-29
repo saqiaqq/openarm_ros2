@@ -1,5 +1,4 @@
-sensors:
-  - gemini_336l_pointcloud
+sensors: []
 
 gemini_336l_pointcloud:
   sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
