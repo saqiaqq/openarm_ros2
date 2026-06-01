@@ -29,6 +29,9 @@ find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(orocos_kdl REQUIRED)
+find_package(kdl_parser REQUIRED)
+find_package(urdf REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
   src/openarm_hardware.cpp
@@ -48,6 +51,12 @@ ament_target_dependencies(${PROJECT_NAME}
   pluginlib
   rclcpp
   rclcpp_lifecycle
+  kdl_parser
+  urdf
+)
+
+target_link_libraries(${PROJECT_NAME}
+  ${orocos_kdl_LIBRARIES}
 )
 
 pluginlib_export_plugin_description_file(hardware_interface openarm_hardware.xml)
@@ -67,6 +76,20 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
   find_package(hardware_interface REQUIRED)
   find_package(ros2_control_test_assets REQUIRED)
+
+  ament_add_gmock(test_gravity_compensation
+    test/test_gravity_compensation.cpp
+  )
+  target_include_directories(test_gravity_compensation PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+  target_link_libraries(test_gravity_compensation
+    ${PROJECT_NAME}
+  )
+  ament_target_dependencies(test_gravity_compensation
+    kdl_parser
+    urdf
+  )
 
   ament_add_gmock(test_openarm_hardware
     test/test_openarm_hardware.cpp

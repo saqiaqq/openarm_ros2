@@ -58,6 +58,45 @@ hardware_interface::CallbackReturn OpenArmHW::on_init(
     disable_torque_ = it->second == "true";
   }
 
+  gravity_comp_enabled_ = false;
+  gravity_scale_ = 1.0;
+  gravity_comp_.reset();
+  it = info_.hardware_parameters.find("gravity_compensation");
+  if (it != info_.hardware_parameters.end() && it->second == "true") {
+    gravity_comp_enabled_ = true;
+    auto scale_it = info_.hardware_parameters.find("gravity_scale");
+    if (scale_it != info_.hardware_parameters.end()) {
+      try {
+        gravity_scale_ = std::stod(scale_it->second);
+      } catch (const std::exception&) {
+        gravity_scale_ = 1.0;
+      }
+    }
+
+    const auto urdf_it = info_.hardware_parameters.find("gravity_urdf_path");
+    const auto root_it = info_.hardware_parameters.find("gravity_root_link");
+    const auto tip_it = info_.hardware_parameters.find("gravity_tip_link");
+    if (urdf_it == info_.hardware_parameters.end() ||
+        root_it == info_.hardware_parameters.end() ||
+        tip_it == info_.hardware_parameters.end()) {
+      RCLCPP_ERROR(rclcpp::get_logger("OpenArmHW"),
+                   "gravity_compensation=true but gravity_urdf_path/root/tip missing");
+      return CallbackReturn::ERROR;
+    }
+
+    gravity_comp_ = std::make_unique<GravityCompensator>();
+    if (!gravity_comp_->init(urdf_it->second, root_it->second, tip_it->second)) {
+      RCLCPP_ERROR(rclcpp::get_logger("OpenArmHW"),
+                   "Failed to init gravity compensation (urdf=%s root=%s tip=%s)",
+                   urdf_it->second.c_str(), root_it->second.c_str(),
+                   tip_it->second.c_str());
+      return CallbackReturn::ERROR;
+    }
+    RCLCPP_INFO(rclcpp::get_logger("OpenArmHW"),
+                "Gravity compensation enabled (scale=%.3f tip=%s)",
+                gravity_scale_, tip_it->second.c_str());
+  }
+
   // temp CANFD
   canbus_ = std::make_unique<CANBus>(info_.hardware_parameters.at("can_interface"),
                                      CAN_MODE_FD);
@@ -156,6 +195,23 @@ void OpenArmHW::refresh_motors() {
   }
 }
 
+double OpenArmHW::armGravityTorque(size_t joint_index) const {
+  if (!gravity_comp_enabled_ || !gravity_comp_ || !gravity_comp_->ready() ||
+      joint_index >= ARM_DOF) {
+    return 0.0;
+  }
+
+  std::array<double, GravityCompensator::kArmDof> q{};
+  std::array<double, GravityCompensator::kArmDof> tau_g{};
+  for (size_t i = 0; i < ARM_DOF; ++i) {
+    q[i] = pos_states_[i];
+  }
+  if (!gravity_comp_->compute(q, tau_g)) {
+    return 0.0;
+  }
+  return gravity_scale_ * tau_g[joint_index];
+}
+
 hardware_interface::CallbackReturn OpenArmHW::on_activate(
     const rclcpp_lifecycle::State& /*previous_state*/) {
   read(rclcpp::Time(0), rclcpp::Duration(0, 0));
@@ -179,7 +235,8 @@ hardware_interface::CallbackReturn OpenArmHW::on_activate(
       } else {
         command -= max_step;
       }
-      motor_control_->controlMIT(*motors_[m], KP[m], KD[m], command, 0.0, 0.0);
+      motor_control_->controlMIT(*motors_[m], KP[m], KD[m], command, 0.0,
+                                 armGravityTorque(m));
     }
     if (all_zero) {
       zeroed = true;
@@ -250,9 +307,9 @@ hardware_interface::return_type OpenArmHW::write(
                    pos_commands_[i]);
       return hardware_interface::return_type::ERROR;
     }
+    const double tau_ff = tau_ff_commands_[i] + armGravityTorque(i);
     motor_control_->controlMIT(*motors_[i], KP.at(i), KD.at(i),
-                               pos_commands_[i], vel_commands_[i],
-                               tau_ff_commands_[i]);
+                               pos_commands_[i], vel_commands_[i], tau_ff);
   }
   if (USING_GRIPPER) {
     const double target_cmd = std::clamp(

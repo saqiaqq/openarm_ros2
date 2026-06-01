@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
 #include "motor.hpp"
 #include "motor_control.hpp"
+#include "openarm_hardware/gravity_compensation.hpp"
 #include "openarm_hardware/visibility_control.h"
 #include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/state.hpp"
@@ -122,7 +124,11 @@ class OpenArmHW : public hardware_interface::SystemInterface {
   std::vector<std::unique_ptr<Motor>> motors_;
 
   void refresh_motors();
+  double armGravityTorque(size_t joint_index) const;
   bool disable_torque_;
+  bool gravity_comp_enabled_{false};
+  double gravity_scale_{1.0};
+  std::unique_ptr<GravityCompensator> gravity_comp_;
   bool gripper_grasp_hold_{false};
   int gripper_stall_count_{0};
   double gripper_hold_pos_m_{GRIPPER_POS_CLOSED_M};
